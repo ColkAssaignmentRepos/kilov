@@ -89,6 +89,7 @@ struct editorConfig {
     char *filename; /* Currently open filename */
     char statusmsg[80];
     time_t statusmsg_time;
+    time_t editor_open_time;
 };
 
 static struct editorConfig E;
@@ -383,6 +384,9 @@ int editorOpen(char *filename) {
     }
     free(line);
     fclose(fp);
+
+    E.editor_open_time = time(NULL);
+
     E.dirty = 0;
     return 0;
 }
@@ -484,8 +488,12 @@ void editorRefreshScreen(void) {
     abAppend(&ab,"\x1b[0K",4);
     abAppend(&ab,"\x1b[7m",4);
     char status[80], rstatus[80];
-    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
-                       E.filename, E.numrows, E.dirty ? "(modified)" : "");
+
+    int elapsed_time = time(NULL) - E.editor_open_time;
+
+    int len = snprintf(status, sizeof(status), "%.20s - %d lines - (%d, %d) - %dm elapsed",
+                       E.filename, E.numrows, E.cx + E.coloff + 1, E.cy + E.rowoff + 1, (elapsed_time / 60) );
+
     int rlen = snprintf(rstatus, sizeof(rstatus),
                         "%d/%d",E.rowoff+E.cy+1,E.numrows);
     if (len > E.screencols) len = E.screencols;
