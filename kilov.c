@@ -62,7 +62,7 @@
 #define print_green(...) {printf("\x1b[32m"); printf(__VA_ARGS__); printf("\x1b[39m\n");}
 #define print_yellow(...) {printf("	\x1b[33m"); printf(__VA_ARGS__); printf("\x1b[39m\n");}
 #define print_error(...) {fprintf(stderr, "\x1b[31m"); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\x1b[39m\n");}
-#define fatal(exit_code, ...) {print_error(__VA_ARGS__); exit(exit_code);}
+#define fatal_with_err(exit_code, ...) {print_error(__VA_ARGS__); exit(exit_code);}
 
 /* This structure represents a single line of the file we are editing. */
 typedef struct erow {
@@ -89,6 +89,7 @@ struct editorConfig {
     char *filename; /* Currently open filename */
     char statusmsg[80];
     time_t statusmsg_time;
+    time_t editor_open_time;
 };
 
 static struct editorConfig E;
@@ -383,6 +384,9 @@ int editorOpen(char *filename) {
     }
     free(line);
     fclose(fp);
+
+    E.editor_open_time = time(NULL);
+
     E.dirty = 0;
     return 0;
 }
@@ -484,8 +488,12 @@ void editorRefreshScreen(void) {
     abAppend(&ab,"\x1b[0K",4);
     abAppend(&ab,"\x1b[7m",4);
     char status[80], rstatus[80];
-    int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
-                       E.filename, E.numrows, E.dirty ? "(modified)" : "");
+
+    int elapsed_time = time(NULL) - E.editor_open_time;
+
+    int len = snprintf(status, sizeof(status), "%.20s - %d lines - (%d, %d) - %dm elapsed",
+                       E.filename, E.numrows, E.cx + E.coloff + 1, E.cy + E.rowoff + 1, (elapsed_time / 60) );
+
     int rlen = snprintf(rstatus, sizeof(rstatus),
                         "%d/%d",E.rowoff+E.cy+1,E.numrows);
     if (len > E.screencols) len = E.screencols;
@@ -624,6 +632,7 @@ void editorProcessKeypress(int fd) {
     static int quit_times = KILO_QUIT_TIMES;
 
     int c = editorReadKey(fd);
+
     switch(c) {
         case CTRL_C:        /* Ctrl-c */
             /* We ignore ctrl-c, it can't be so simple to lose the changes
@@ -708,7 +717,7 @@ void initEditor(void) {
 int main(int argc, char **argv) {
     if (argc != 2) {
         print_error("Error: Expected 2 arguments, but got %d.", argc);
-        fatal(1, "Usage: kilo <filename>");
+        fatal_with_err(1, "Usage: kilo <filename>");
     }
 
     initEditor();
