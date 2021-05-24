@@ -711,6 +711,7 @@ void initEditor(void) {
     E.row = NULL;
     E.dirty = 0;
     E.filename = NULL;
+    E.editor_open_time = 0;
     updateWindowSize();
 }
 
